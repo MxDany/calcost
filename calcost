@@ -1,0 +1,162 @@
+#!/bin/bash
+env_std="Desktop"
+test $(ls --help 2>&1 | grep BusyBox | wc -l) -gt 0 && env_std="BusyBox"
+required="top ps grep head awk wc read"
+for cmd in $required; do
+    type $cmd >/dev/null || {
+        echo -e "\033[41;30mCommand '$cmd' not found in your system, it required by '$(basename $0)'.\033[0m"
+        exit 1
+    }
+done
+# RSS basic unit is kiloBytes
+let unitM=1024
+let unitG=1024*1024
+usage() {
+    exitval="$1"
+    errmsg="$2"
+    if [ $exitval -ne 0 ]; then
+        # Redirect stdout to stderr, effect globally (exec is bash build-in function)
+        exec 1>&2
+    fi
+    if [ ! -z "$errmsg" ]; then
+        echo -e "\033[41;30mERROR: $errmsg.\033[0m" 1>&2
+    fi
+    cat <<EOF
+Usage: $0 [-p pid]/[-c cmd] <-t interval> <-n times>
+    Use top/ps command to calculate CPU and RSS and its average value.
+
+    -p    The PID of the specified process, Prohibit use with -c.
+    -c    The CMD of the specified process, Prohibit use with -p.
+    -t    Optional parameters, Use it to specify the scan time interval, the
+          default time is $time_ival seconds.
+    -n    Optional parameters, Use it to specify the number of averaging times,
+          The default number is 0, which indicates an infinite loop.
+          When using Ctrl-C(SIGINT,2) to stop the script from running, it will 
+          use the current number of executions to calculate the average.
+    -h    display this help and exit.
+
+EOF
+    exit
+}
+calc_each() {
+    echo "#$1 $proc_pid:"
+    # Use the 'top' command to calculate the CPU usage and sum
+    if [ "$env_std" = "BusyBox" ]; then
+        title=$(top -n 1 | grep -Eo " *PID\b.*")
+        cmd=$(top -bn 1 | awk -v pid=$proc_pid '{if (pid==$1) print $0}')
+        cpu=$(echo $cmd | awk '{print $7}')
+        cpu=${cpu%\%} # Remove '%' on the right
+    elif [ "$env_std" = "Desktop" ]; then
+        title=$(top -n 1 | grep -oE " *PID\b.*COMMAND\b")
+        cmd=$(top -bn 1 | awk -v pid=$proc_pid '{if (pid==$1) print $0}')
+        cpu=$(echo $cmd | awk '{print $9}')
+    fi
+    cpu_sum=$(echo $cpu_sum $cpu | awk '{printf("%.2f\n",$1+$2)}')
+    # cpu_sum=$(echo "scale=2; $cpu_sum + $cpu" | bc) # 'bc' maybe not support in BusyBox
+    echo -e "  \033[44;30m$title\033[0m"
+    echo -e "  \033[7m$cmd\033[0m"
+
+    # Use 'ps' command to calculate rss memory and sum
+    rss=$(ps -eo pid,ppid,comm,rss | awk -v pid=$proc_pid '{if (pid==$1) print $4}')
+    unit=${rss##*[0-9]}
+    if [ "$unit" = "m" ]; then
+        let rss=${rss%m}*$unitM
+    elif [ "$unit" = "g" ]; then
+        let rss=${rss%g}*$unitG
+    fi
+    let rss_sum=$rss_sum+$rss
+    echo -e "  \033[44;30m$(ps -eo pid,ppid,comm,rss | head -1)\033[0m"
+    ps -eo pid,ppid,comm,rss | awk -v pid=$proc_pid '{if (pid==$1||pid==$2) print $0}' | while IFS= read -r line; do
+        if [ $proc_pid -eq $(echo $line | awk '{print $1}') ]; then
+            echo -e "  \033[7m$line\033[0m"
+        else
+            echo -e "  $line"
+        fi
+    done
+    if [ $rss -gt $unitG ]; then
+        echo -e "  \033[41;30m  CPU=${cpu}%, RSS=$(echo $rss $unitG | awk '{printf("%.2f\n",$1/$2)}')GB \033[0m"
+    elif [ $rss -gt $unitM ]; then
+        echo -e "  \033[41;30m  CPU=${cpu}%, RSS=$(echo $rss $unitM | awk '{printf("%.2f\n",$1/$2)}')MB \033[0m"
+    else
+        echo -e "  \033[41;30m  CPU=${cpu}%, RSS=${rss}KB \033[0m"
+    fi
+    echo "============================================================="
+}
+calc_avg() {
+    echo "============================================================="
+    cpu_avg=$(echo $cpu_sum $loop_num | awk '{printf("%.2f\n",$1/$2)}')
+    rss_avg=$(echo $rss_sum $loop_num | awk '{printf("%.2f\n",$1/$2)}')
+    echo -e "\033[42;30mRun $loop_num times at $time_ival second intervals.\033[0m"
+    echo -e "\033[42;30mPID=$proc_pid, Calculate the average:\033[0m"
+    if $(echo $rss_avg $unitG | awk '{if ($1>$2) print "true"; else print "false"}'); then
+        echo -e "\033[42;30mAverage: CPU=${cpu_avg}%, RSS=$(echo $rss_avg $unitG | awk '{printf("%.2f\n",$1/$2)}')GB\033[0m"
+    elif $(echo $rss_avg $unitM | awk '{if ($1>$2) print "true"; else print "false"}'); then
+        echo -e "\033[42;30mAverage: CPU=${cpu_avg}%, RSS=$(echo $rss_avg $unitM | awk '{printf("%.2f\n",$1/$2)}')MB\033[0m"
+    else
+        echo -e "\033[42;30mAverage: CPU=${cpu_avg}%, RSS=${rss_avg}KB\033[0m"
+    fi
+    echo "============================================================="
+}
+#########################
+# Main script starts here
+time_ival=2 # default time interval: 2s.
+loop_num=0  # default loop num: infinite.
+abort=false # default is don't abort.
+while getopts 'c:p:t:n:?h' c; do
+    case $c in
+    c) proc_cmd=$OPTARG ;;
+    p) proc_pid=$OPTARG ;;
+    t) time_ival=$OPTARG ;;
+    n) loop_num=$OPTARG ;;
+    h) usage 0 ;; esac
+done
+if [ -n "$proc_cmd" ]; then
+    test -n "$proc_pid" && usage 1 "Do not use both '-p' and '-c', use one of then to indicate a process"
+    echo -e "\033[42;30m============= Related Command =============\033[0m"
+    echo -e "\033[44;30m$(ps -eo pid,ppid,comm | head -1)\033[0m"
+    related_pid=()
+    while IFS= read -r line; do
+        proc_pid=$(echo $line | awk '{print $1}')
+        test -n "$proc_pid" && {
+            related_pid+=($proc_pid)
+            echo -e "\033[7m$line\033[0m"
+            let cnt++
+        }
+    done <<<$(ps -eo pid,ppid,comm | awk -v cmd=$proc_cmd '{if (cmd==$3) print $0}')
+    echo -e "\033[42;30m===========================================\033[0m"
+    let cnt+=0
+    test $cnt -eq 0 && usage 1 "no process(CMD=$proc_cmd) found"
+    test $cnt -gt 1 && {
+        # usage 1 "found more than one process(CMD=$proc_cmd) is running, please use '-p' set PID to specify the process precisely"
+        echo -e "\033[41;30mFound more than one process(CMD=$proc_cmd) is running, please choose a PID to specify the process precisely.\033[0m" 1>&2
+        select pid in "${related_pid[@]}"; do
+            test -n "$pid" && {
+                echo -e "\033[41;30mYou have chosen a process with PID=$pid.\033[0m"
+                proc_pid=$pid
+                break
+            } || echo -e "\033[41;30mUnrecognized Options PID=$pid.\033[0m"
+        done
+    }
+fi
+test -z "${proc_pid##*[!0-9]*}" && usage 1 "pid must be an integer"
+test -z "$(ps -eo pid | grep -Eo "\b$proc_pid\b")" && usage 1 "process(PID=$proc_pid) cannot be found"
+test -z "${loop_num##*[!0-9]*}" && usage 1 "execution times must be an integer"
+echo -e "\033[42;30m===== Start top/ps to calculate <CPU> and <RSS> =====\033[0m"
+# Capture the 'CTRL-C' signal, set the abort flag to true, and calculate the final average result.
+trap "echo -e ' \033[41;30m Receive SIGINT(2), Abort it and calculate the result!!! \033[0m' && abort=true" SIGINT
+sleep $time_ival >/dev/null 2>&1 || usage 1 "sleep time setting error"
+if [ $loop_num -eq 0 ]; then
+    while true; do
+        let loop_num=$loop_num+1
+        calc_each $loop_num
+        $abort && break
+        sleep $time_ival
+    done
+else
+    for i in $(seq 1 $loop_num); do
+        calc_each $i
+        $abort && break
+        sleep $time_ival
+    done
+fi
+calc_avg
