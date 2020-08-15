@@ -37,7 +37,7 @@ Real-time monitoring of CPU and RSS consumption of a processes.
 
   As below, I used ctrl-c to stop the monitoring, and it calculated the average of 2 times.
 
-![image-20200814005921855](assets/image-20200814005921855.png)
+![usage01.png](https://github.com/MxDany/calcost/blob/master/assets/usage01.png)
 
 Or you can directly specify the process by PID. 
 
@@ -45,7 +45,7 @@ Or you can directly specify the process by PID.
 ./calcost -c 858
 ```
 
-![image-20200814010739821](assets/image-20200814010739821.png)
+![usage02](https://github.com/MxDany/calcost/blob/master/assets/usage02.png)
 
 ## Average calculation
 
@@ -57,7 +57,7 @@ You can specify the number of cycles to calculate the average of CPU and RSS. Us
 
 - It will loop 3 times at an interval of 1 second, then stop monitoring, and then calculate the average of CPU and RSS.
 
-![image-20200814011126349](assets/image-20200814011126349.png)
+![usage03](https://github.com/MxDany/calcost/blob/master/assets/usage03.png)
 
 Or you can directly specify the process by PID. 
 
