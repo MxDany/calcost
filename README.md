@@ -1,6 +1,9 @@
 # calcost
 
-Use linux `ps` and `top` command to monitor the resource consumption of a process, and then calculate the average value of CPU and RSS during this period.
+`calcost` is a process resource(RSS/CPU) monitoring and averaging shell tool.
+
+`calcost` use Linux `ps` and `top` command to monitor the resource consumption of a process, and then calculate the average value of CPU and RSS during this period.
+
 # usage
 
 ```shell
@@ -37,7 +40,7 @@ Real-time monitoring of CPU and RSS consumption of a processes.
 
   As below, I used ctrl-c to stop the monitoring, and it calculated the average of 2 times.
 
-![usage01.png](https://github.com/MxDany/calcost/blob/master/assets/usage01.png)
+![](https://github.com/MxDany/calcost/blob/master/assets/usage01.png)
 
 Or you can directly specify the process by PID. 
 
@@ -45,7 +48,7 @@ Or you can directly specify the process by PID.
 ./calcost -c 858
 ```
 
-![usage02](https://github.com/MxDany/calcost/blob/master/assets/usage02.png)
+![](https://github.com/MxDany/calcost/blob/master/assets/usage02.png)
 
 ## Average calculation
 
@@ -57,7 +60,7 @@ You can specify the number of cycles to calculate the average of CPU and RSS. Us
 
 - It will loop 3 times at an interval of 1 second, then stop monitoring, and then calculate the average of CPU and RSS.
 
-![usage03](https://github.com/MxDany/calcost/blob/master/assets/usage03.png)
+![](https://github.com/MxDany/calcost/blob/master/assets/usage03.png)
 
 Or you can directly specify the process by PID. 
 
