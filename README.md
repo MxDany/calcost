@@ -1,7 +1,9 @@
 # calcost
-Use linux ps and top command to calculate the average of process CPU and RSS.
+
+Use linux `ps` and `top` command to monitor the resource consumption of a process, and then calculate the average value of CPU and RSS during this period.
 # usage
-```
+
+```shell
 Usage: ./calcost [-p pid]/[-c cmd] <-t interval> <-n times>
     Use top/ps command to calculate CPU and RSS and its average value.
 
@@ -16,7 +18,50 @@ Usage: ./calcost [-p pid]/[-c cmd] <-t interval> <-n times>
     -h    display this help and exit.
 ```
 # Example
+
+## Real-time monitoring
+
 Real-time monitoring of CPU and RSS consumption of a processes.
-```
+
+```shell
 ./calcost -c sshd
 ```
+
+- If multiple processes are found by command name, then you need to select one process.
+
+  As below, 3 processes were found according to `sshd`, I chose the first one.
+
+- It will loop forever to display current CPU and RSS.
+
+- And you can press keyboard CTRL-C(or send a SIGINT signal to `calcost`) to stop monitoring at any time, it will calculate the recorded CPU/RSS average.
+
+  As below, I used ctrl-c to stop the monitoring, and it calculated the average of 2 times.
+
+![image-20200814005921855](assets/image-20200814005921855.png)
+
+Or you can directly specify the process by PID. 
+
+```shell
+./calcost -c 858
+```
+
+![image-20200814010739821](assets/image-20200814010739821.png)
+
+## Average calculation
+
+You can specify the number of cycles to calculate the average of CPU and RSS. Used to indicate the resource consumption of a process over a period of time.
+
+```shell
+./calcost -c sshd -t 1 -n 3
+```
+
+- It will loop 3 times at an interval of 1 second, then stop monitoring, and then calculate the average of CPU and RSS.
+
+![image-20200814011126349](assets/image-20200814011126349.png)
+
+Or you can directly specify the process by PID. 
+
+```shell
+./calcost -c 858 -t 1 -n 3
+```
+

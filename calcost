@@ -1,4 +1,5 @@
 #!/bin/bash
+# Author: lihan(1104616563@qq.com)
 env_std="Desktop"
 test $(ls --help 2>&1 | grep BusyBox | wc -l) -gt 0 && env_std="BusyBox"
 required="top ps grep head awk wc read"
